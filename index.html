@@ -65,18 +65,25 @@
     }
     @media (min-width: 720px){
       .project{ grid-template-columns: 5fr 7fr; }
-    }
-    .project figure{
-      margin:0;
-      aspect-ratio: 16/10;
-      overflow: hidden;
-    }
-    .project img{
-      width:100%; height:100%; object-fit: cover; display:block;
-      transform: scale(1.02);
-      transition: transform .35s ease;
-    }
-    .project:hover img{ transform: scale(1.06);}
+    }.project figure {
+  margin: 0;
+  aspect-ratio: 16/10;
+  overflow: hidden;
+}
+
+.project img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   /* Bild füllt den Bereich, wird ggf. beschnitten */
+  display: block;
+  transform: scale(1.02);
+  transition: transform .35s ease;
+}
+
+.project:hover img {
+  transform: scale(1.06);
+}
+
     .project .content{
       padding: clamp(14px, 2.4vw, 24px);
       display:flex; flex-direction:column; justify-content:center; gap:10px;
