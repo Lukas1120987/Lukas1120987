@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>E-Mail CSS Editor — Statische Demo</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --muted:#9aa4b2;
+    --accent:#60a5fa;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Roboto,Arial;color:#e6eef6;background:linear-gradient(180deg,var(--bg),#071028);-webkit-font-smoothing:antialiased}
+  header{padding:14px 20px;color:#eaf5ff;display:flex;gap:12px;align-items:center}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  .wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:12px;height:calc(100% - 60px)}
+  .panel{background:var(--card);border-radius:10px;padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);display:flex;flex-direction:column;overflow:hidden}
+  .panel .title{font-size:13px;color:var(--muted);margin-bottom:8px}
+  textarea{width:100%;height:100%;resize:none;background:transparent;border:1px dashed rgba(255,255,255,0.05);padding:10px;color:#dff0ff;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:13px;border-radius:6px;outline:none}
+  .toolbar{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  button{background:var(--glass);border:1px solid rgba(255,255,255,0.03);color:#dfefff;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+  button.primary{background:linear-gradient(90deg,#2b6cb0,#60a5fa);border:none;color:white}
+  .meta{display:flex;gap:8px;margin-bottom:8px}
+  .meta input{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+  .preview-area{display:flex;flex-direction:column;height:100%}
+  .iframe-wrap{flex:1;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
+  iframe{width:100%;height:100%;border:0;background:white}
+  .status{font-size:12px;color:var(--muted);margin-top:8px}
+  .client-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:900px;max-width:95%;height:680px;max-height:95%;background:white;border-radius:10px;box-shadow:0 30px 80px rgba(2,6,23,0.6);display:flex;flex-direction:column;overflow:hidden;z-index:60}
+  .client-header{padding:14px;border-bottom:1px solid #eee;display:flex;gap:8px;align-items:center}
+  .client-header .meta{flex:1;display:flex;gap:6px}
+  .client-body{display:flex;flex-direction:column;flex:1;overflow:hidden}
+  .client-toolbar{padding:8px;border-bottom:1px solid #f3f5f8;display:flex;gap:8px}
+  .client-iframe{flex:1;border:0}
+  .close-x{margin-left:auto;cursor:pointer;font-weight:600}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  footer{padding:8px 12px;color:var(--muted);font-size:12px;text-align:center}
+  @media (max-width:980px){.wrap{grid-template-columns:1fr;grid-auto-rows:320px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>E-Mail CSS Editor — Erstelle HTML-E-Mails mit CSS (statisch)</h1>
+  <div style="margin-left:auto;color:var(--muted);font-size:13px">Speichere lokal: automatisch</div>
+</header>
+
+<div class="wrap">
+  <!-- HTML Editor -->
+  <section class="panel">
+    <div class="title">HTML (E-Mail Inhalt)</div>
+    <div class="toolbar">
+      <button id="tpl-basic">Beispiel einfügen</button>
+      <button id="save-html">Speichern</button>
+      <button id="clear-html">Leeren</button>
+    </div>
+    <textarea id="htmlEditor" spellcheck="false"></textarea>
+    <div class="hint">Tipp: benutze nur Inline-freundliche Tags: &lt;table&gt;, &lt;tr&gt;, &lt;td&gt;, &lt;div&gt;, &lt;p&gt;, &lt;a&gt;, &lt;img&gt;, Klassen und IDs.</div>
+  </section>
+
+  <!-- CSS Editor -->
+  <section class="panel">
+    <div class="title">CSS (wird vor dem Senden inlined)</div>
+    <div class="toolbar">
+      <button id="tpl-css">Beispiel-CSS</button>
+      <button id="save-css">Speichern</button>
+      <button id="clear-css">Leeren</button>
+    </div>
+    <textarea id="cssEditor" spellcheck="false"></textarea>
+    <div class="hint">Hinweis: der Inliner unterstützt einfache Selektoren (tag, .class, #id). Komplexe Pseudoklassen möglich, aber nicht garantiert.</div>
+  </section>
+
+  <!-- Preview / Meta -->
+  <section class="panel preview-area">
+    <div class="title">Vorschau & E-Mail Programm</div>
+
+    <div class="meta">
+      <input id="from" placeholder="Von (z. B. max@beispiel.de)" value="max@beispiel.de">
+      <input id="to" placeholder="An (z. B. susi@schule.de)" value="susi@schule.de">
+      <input id="subject" placeholder="Betreff" value="Hallo — Deine Test-Mail">
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="primary" id="openClient">E-Mail öffnen</button>
+      <button id="livePreview">Live-Vorschau aktualisieren</button>
+      <button id="copyHtml">Finales HTML kopieren</button>
+      <button id="downloadHtml">Als .html herunterladen</button>
+    </div>
+
+    <div class="iframe-wrap">
+      <iframe id="liveIframe" sandbox="allow-same-origin"></iframe>
+    </div>
+
+    <div class="status" id="status">Bereit — ändere HTML/CSS und klicke auf "Live-Vorschau aktualisieren" oder "E-Mail öffnen".</div>
+  </section>
+</div>
+
+<footer>Simple Static Demo — Keine E-Mail-Server-Funktionalität (nur Vorschau & Export)</footer>
+
+<!-- Client Modal (hidden initially) -->
+<div id="clientModal" style="display:none" class="client-modal" role="dialog" aria-modal="true">
+  <div class="client-header">
+    <strong>Mock-Mailclient</strong>
+    <div class="meta">
+      <input id="c-from" readonly>
+      <input id="c-to" readonly>
+      <input id="c-subject" readonly>
+    </div>
+    <div class="close-x" id="closeClient">✕</div>
+  </div>
+  <div class="client-body">
+    <div class="client-toolbar">
+      <button id="download-final">Herunterladen</button>
+      <button id="copy-final">In die Zwischenablage</button>
+      <button id="open-new-tab">In neuem Tab öffnen</button>
+    </div>
+    <iframe id="clientIframe" class="client-iframe"></iframe>
+  </div>
+</div>
+
+<script>
+/* Simple email CSS inliner and UI logic.
+   - Inline support: tag selectors, .class, #id
+   - Applies declarations to matched elements by setting element.style.cssText += declarations
+   - Not a full CSS inliner (no specificity resolution, media queries ignored)
+*/
+
+// DOM
+const htmlEditor = document.getElementById('htmlEditor');
+const cssEditor = document.getElementById('cssEditor');
+const liveIframe = document.getElementById('liveIframe');
+const status = document.getElementById('status');
+
+const fromInput = document.getElementById('from');
+const toInput = document.getElementById('to');
+const subjectInput = document.getElementById('subject');
+
+const clientModal = document.getElementById('clientModal');
+const clientIframe = document.getElementById('clientIframe');
+const cFrom = document.getElementById('c-from');
+const cTo = document.getElementById('c-to');
+const cSubject = document.getElementById('c-subject');
+
+// sample content
+const sampleHTML = `<!-- Beispielstruktur -->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;margin:0 auto;">
+  <tr>
+    <td style="padding:20px;background:#f5f8fb;text-align:center">
+      <img src="https://via.placeholder.com/120x40?text=Logo" alt="Logo" style="display:block;margin:0 auto 10px;" />
+      <h1 class="title">Willkommen zur Demo</h1>
+      <p class="lead">Das ist ein Beispieltext in deiner E-Mail. Teste Bilder, Buttons und Tabellen.</p>
+      <a class="btn" href="https://example.com">Zur Webseite</a>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:18px;background:#ffffff">
+      <p>Hier kannst du weiteren Inhalt platzieren. <strong>Wichtig:</strong> viele Mailclients unterstützen kein externes CSS — deshalb inlinen!</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:14px;text-align:center;background:#f6f8fa;color:#6b7280;font-size:13px">
+      &copy; Deine Schule
+    </td>
+  </tr>
+</table>`;
+
+const sampleCSS = `/* Beispiel CSS — wird vor dem Einfügen in die Mail inlined */
+.title {
+  font-size: 22px;
+  color: #0f1724;
+  margin: 6px 0;
+}
+.lead{
+  color:#334155;
+  font-size:14px;
+  margin:6px 0 12px;
+}
+.btn{
+  display:inline-block;
+  padding:10px 16px;
+  background:#2563eb;
+  color:white;
+  border-radius:6px;
+  text-decoration:none;
+}
+img{border:0;max-width:100%;height:auto}
+table{border-collapse:collapse}
+`;
+
+// localStorage keys
+const KEY_HTML = 'email_editor_html_v1';
+const KEY_CSS  = 'email_editor_css_v1';
+
+// load saved
+htmlEditor.value = localStorage.getItem(KEY_HTML) || sampleHTML;
+cssEditor.value = localStorage.getItem(KEY_CSS) || sampleCSS;
+
+// utility: parse CSS rules (very simple)
+function parseCSSRules(cssText){
+  const rules = [];
+  // remove comments
+  cssText = cssText.replace(/\/\*[\s\S]*?\*\//g,'');
+  // split by }
+  const parts = cssText.split('}');
+  for(const part of parts){
+    const idx = part.indexOf('{');
+    if(idx === -1) continue;
+    const selector = part.slice(0, idx).trim();
+    const decls = part.slice(idx+1).trim();
+    if(selector && decls) rules.push({selector, decls});
+  }
+  return rules;
+}
+
+// apply simple inlining: supports comma separated selectors, tag, .class, #id
+function inlineCssToHtml(html, css){
+  // create a DOM offscreen
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const root = template.content;
+
+  const rules = parseCSSRules(css);
+  for(const rule of rules){
+    // split multi-selectors by comma
+    const selectors = rule.selector.split(',').map(s=>s.trim()).filter(Boolean);
+    for(const sel of selectors){
+      try{
+        const elems = root.querySelectorAll(sel);
+        elems.forEach(el=>{
+          // append declarations to style attribute (naiver approach)
+          // ensure semicolon termination
+          const add = rule.decls.trim();
+          // do not overwrite existing inline style—append
+          if(add){
+            // If style exists and doesn't end with semicolon, add it.
+            const exist = el.getAttribute('style') || '';
+            const joined = exist && !exist.trim().endsWith(';') ? exist + '; ' + add : exist + (exist ? ' ' + add : add);
+            el.setAttribute('style', joined);
+          }
+        });
+      }catch(e){
+        // invalid selector — skip silently
+        console.warn('Selector skipped (unsupported):', sel, e);
+      }
+    }
+  }
+
+  // return serialized HTML of the template
+  // wrap with a container to ensure top-level nodes preserved
+  const wrapper = document.createElement('div');
+  wrapper.appendChild(root.cloneNode(true));
+  // return innerHTML
+  return wrapper.innerHTML;
+}
+
+// build full email HTML document (with basic meta)
+function buildEmailDocument(bodyHtml){
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email Preview</title>
+</head>
+<body style="margin:0;padding:24px;background:#f2f6fb;">
+${bodyHtml}
+</body>
+</html>`;
+}
+
+// update live preview (keeps CSS in <style> for quick preview)
+function updateLivePreview(){
+  const body = htmlEditor.value;
+  const css = cssEditor.value;
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body style="margin:0;padding:24px;background:#f2f6fb;">${body}</body></html>`;
+  // write to iframe
+  const iframeDoc = liveIframe.contentDocument || liveIframe.contentWindow.document;
+  iframeDoc.open();
+  iframeDoc.write(doc);
+  iframeDoc.close();
+  status.textContent = 'Live-Vorschau aktualisiert.';
+  // autosave
+  localStorage.setItem(KEY_HTML, htmlEditor.value);
+  localStorage.setItem(KEY_CSS, cssEditor.value);
+}
+
+// open mock email client — inlines CSS before rendering
+function openClient(){
+  const rawHtml = htmlEditor.value;
+  const css = cssEditor.value;
+  let inlined = inlineCssToHtml(rawHtml, css);
+  const fullDoc = buildEmailDocument(inlined);
+  // show modal
+  clientModal.style.display = 'flex';
+  cFrom.value = fromInput.value;
+  cTo.value = toInput.value;
+  cSubject.value = subjectInput.value;
+  // write to iframe
+  const idoc = clientIframe.contentDocument || clientIframe.contentWindow.document;
+  idoc.open();
+  idoc.write(fullDoc);
+  idoc.close();
+  // store for download/copy
+  clientModal._finalHtml = fullDoc;
+}
+
+// Copy to clipboard (final)
+async function copyToClipboard(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('In die Zwischenablage kopiert.');
+  }catch(e){
+    prompt('Kein Clipboard API — kopiere manuell:', text);
+  }
+}
+
+// download helper
+function downloadFile(filename, text){
+  const blob = new Blob([text], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+
+// wire buttons
+document.getElementById('tpl-basic').addEventListener('click', ()=>{
+  if(!confirm('Beispiel HTML ersetzen?')) return;
+  htmlEditor.value = sampleHTML;
+});
+document.getElementById('tpl-css').addEventListener('click', ()=>{
+  if(!confirm('Beispiel CSS ersetzen?')) return;
+  cssEditor.value = sampleCSS;
+});
+document.getElementById('save-html').addEventListener('click', ()=>{
+  localStorage.setItem(KEY_HTML, htmlEditor.value);
+  status.textContent = 'HTML gespeichert.';
+});
+document.getElementById('save-css').addEventListener('click', ()=>{
+  localStorage.setItem(KEY_CSS, cssEditor.value);
+  status.textContent = 'CSS gespeichert.';
+});
+document.getElementById('clear-html').addEventListener('click', ()=>{ if(confirm('HTML leeren?')) htmlEditor.value=''; });
+document.getElementById('clear-css').addEventListener('click', ()=>{ if(confirm('CSS leeren?')) cssEditor.value=''; });
+
+document.getElementById('livePreview').addEventListener('click', updateLivePreview);
+document.getElementById('openClient').addEventListener('click', openClient);
+document.getElementById('closeClient').addEventListener('click', ()=>{ clientModal.style.display='none'; });
+
+document.getElementById('copyHtml').addEventListener('click', ()=>{
+  // copy inlined final HTML
+  const finalInlined = inlineCssToHtml(htmlEditor.value, cssEditor.value);
+  const doc = buildEmailDocument(finalInlined);
+  copyToClipboard(doc);
+});
+
+document.getElementById('downloadHtml').addEventListener('click', ()=>{
+  const finalInlined = inlineCssToHtml(htmlEditor.value, cssEditor.value);
+  const doc = buildEmailDocument(finalInlined);
+  downloadFile('email_preview.html', doc);
+});
+
+// client modal helpers
+document.getElementById('copy-final').addEventListener('click', ()=>{
+  if(clientModal._finalHtml) copyToClipboard(clientModal._finalHtml);
+});
+document.getElementById('download-final').addEventListener('click', ()=>{
+  if(clientModal._finalHtml) downloadFile('email_final.html', clientModal._finalHtml);
+});
+document.getElementById('open-new-tab').addEventListener('click', ()=>{
+  if(!clientModal._finalHtml) return;
+  const w = window.open();
+  w.document.open();
+  w.document.write(clientModal._finalHtml);
+  w.document.close();
+});
+
+// once at start, show live preview
+updateLivePreview();
+
+// convenience: Ctrl+S to save
+window.addEventListener('keydown', (e)=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){
+    e.preventDefault();
+    localStorage.setItem(KEY_HTML, htmlEditor.value);
+    localStorage.setItem(KEY_CSS, cssEditor.value);
+    status.textContent = 'Autosave (Ctrl+S) gespeichert.';
+    setTimeout(()=>status.textContent='Bereit',1400);
+  }
+});
+</script>
+</body>
+</html>
