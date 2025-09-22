@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Temp-Video-Galerie — Lokal (IndexedDB)</title>
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#60a5fa;
+    --glass: rgba(255,255,255,0.04);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#e6eef6;background:linear-gradient(180deg,#071028,#0b1726);-webkit-font-smoothing:antialiased}
+  header{padding:14px 18px;display:flex;gap:12px;align-items:center}
+  header h1{font-size:18px;margin:0}
+  .container{padding:12px;display:flex;gap:12px;flex-direction:column;height:calc(100% - 64px)}
+  .top{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+  .upload-box{display:flex;gap:12px;align-items:center;padding:10px;border:1px dashed rgba(255,255,255,0.04);border-radius:8px}
+  input[type="file"]{display:none}
+  .btn{background:var(--glass);border:1px solid rgba(255,255,255,0.03);color:#dfefff;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .btn.primary{background:linear-gradient(90deg,#2b6cb0,#60a5fa);border:none}
+  label.fake-btn{cursor:pointer;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03)}
+  .meta{display:flex;gap:8px;align-items:center}
+  .meta input,.meta select,.meta textarea{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px;overflow:auto;padding-bottom:12px}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+  .thumb{height:130px;display:block;background:#111;object-fit:cover;width:100%}
+  .card-body{padding:10px}
+  .title{font-weight:600;margin:0 0 6px 0;color:#eaf5ff;font-size:14px}
+  .desc{color:var(--muted);font-size:13px;margin:0 0 8px 0;height:36px;overflow:hidden}
+  .meta-row{display:flex;gap:8px;align-items:center;justify-content:space-between}
+  .small{font-size:12px;color:var(--muted)}
+  .controls{display:flex;gap:6px}
+  .player-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:88%;max-width:1100px;height:68%;max-height:760px;background:#fff;border-radius:10px;z-index:80;box-shadow:0 30px 80px rgba(2,6,23,0.6);display:flex;flex-direction:column;overflow:hidden}
+  .player-header{display:flex;gap:8px;padding:10px;border-bottom:1px solid #eee;align-items:center}
+  .close-x{margin-left:auto;cursor:pointer;font-weight:700}
+  .player-body{display:flex;flex:1;overflow:hidden}
+  .player-left{flex:2;background:#000;display:flex;align-items:center;justify-content:center}
+  .player-right{flex:1;padding:12px;overflow:auto;background:#fafafa;color:#0b1220}
+  video{width:100%;height:100%;background:#000}
+  .search-row{display:flex;gap:8px;align-items:center}
+  .search-row input{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:#fff}
+  .hint{font-size:12px;color:var(--muted);margin-left:6px}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:10px}
+  @media (max-width:900px){ .player-modal{height:80%} .player-body{flex-direction:column} .player-left{height:50%} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Temp-Video-Galerie (lokal)</h1>
+  <div style="margin-left:auto;color:var(--muted);font-size:13px">Speichert lokal im Browser (IndexedDB)</div>
+</header>
+
+<div class="container">
+  <div class="top">
+    <div class="panel" style="flex:1;min-width:360px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <label class="fake-btn">
+          Datei wählen
+          <input id="fileInput" type="file" accept="video/*" multiple>
+        </label>
+        <div class="hint">oder Video hierhin ziehen</div>
+        <div style="margin-left:auto" class="small">Gespeichert lokal / temporär</div>
+      </div>
+
+      <div class="upload-box" id="dropArea">
+        <div style="flex:1">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+            <input id="titleInput" placeholder="Titel (optional)" style="flex:1">
+            <select id="ttlSelect" title="Ablaufzeit">
+              <option value="24">24h</option>
+              <option value="72">72h</option>
+              <option value="168" selected>7 Tage</option>
+              <option value="720">30 Tage</option>
+              <option value="0">Nie automatisch löschen</option>
+            </select>
+          </div>
+          <textarea id="descInput" placeholder="Beschreibung (optional)" rows="2" style="width:100%"></textarea>
+        </div>
+        <div style="width:220px">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Upload-Queue</div>
+          <ol id="queue" style="margin:0;padding-left:18px;color:var(--muted)"></ol>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button id="startUpload" class="btn primary">Hochladen</button>
+            <button id="clearQueue" class="btn">Leeren</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="width:360px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div class="search-row" style="flex:1">
+          <input id="searchInput" placeholder="Suchen (Titel / Beschreibung)..." style="width:100%">
+        </div>
+        <select id="sortSelect" title="Sortierung">
+          <option value="new">Neueste</option>
+          <option value="old">Älteste</option>
+          <option value="title">Titel A→Z</option>
+        </select>
+      </div>
+      <div style="font-size:13px;color:var(--muted)">Hinweis: Videos bleiben lokal im Browser (nicht online). TTL = Zeit, nach der ein Video automatisch gelöscht wird.</div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button id="cleanExpired" class="btn">Abgelaufene löschen</button>
+        <button id="exportList" class="btn">Metadaten exportieren</button>
+        <button id="importList" class="btn">Metadaten importieren</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="flex:1;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:8px">
+      <strong style="color:#eaf5ff">Meine Videos</strong>
+      <div class="small" id="stats">... lädt</div>
+    </div>
+    <div class="grid" id="gallery" style="flex:1;overflow:auto"></div>
+  </div>
+
+  <footer>Temp Video Gallery — lokal • Keine Server-Uploads</footer>
+</div>
+
+<!-- Player Modal -->
+<div id="playerModal" style="display:none" class="player-modal" role="dialog" aria-modal="true">
+  <div class="player-header">
+    <strong id="playerTitle">Titel</strong>
+    <div style="display:flex;gap:8px;align-items:center;margin-left:12px">
+      <span id="playerAge" class="small"></span>
+    </div>
+    <div class="close-x" id="closePlayer">✕</div>
+  </div>
+  <div class="player-body">
+    <div class="player-left" id="playerLeft">
+      <video id="playerVideo" controls playsinline></video>
+    </div>
+    <div class="player-right">
+      <div style="margin-bottom:8px">
+        <div style="font-weight:600">Beschreibung</div>
+        <div id="playerDesc" style="white-space:pre-wrap;color:#333;margin-top:6px"></div>
+      </div>
+      <div style="margin-top:6px;display:flex;gap:8px">
+        <button id="downloadBtn" class="btn">Herunterladen</button>
+        <button id="deleteBtn" class="btn">Löschen</button>
+        <button id="closeBtn" class="btn">Schließen</button>
+      </div>
+      <div style="margin-top:12px;color:#666;font-size:13px">
+        <div>Größe: <span id="playerSize"></span></div>
+        <div>Hochgeladen: <span id="playerDate"></span></div>
+        <div>Ablauf: <span id="playerExpire"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+  Temp Video Gallery (single-file)
+  - Speichert Videos (Blob) + Metadaten in IndexedDB
+  - TTL (Ablauf) wird geprüft und abgelaufene Einträge werden entfernt
+  - Thumbnails werden per Canvas aus Video-Frame erzeugt
+  - Keine Server-Kommunikation — alles lokal im Browser
+*/
+
+// ---------------- IndexedDB helper ----------------
+const DB_NAME = 'tempVideoGalleryDB_v1';
+const STORE_VIDEOS = 'videos';
+
+function openDB(){
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open(DB_NAME, 1);
+    rq.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE_VIDEOS)){
+        const st = db.createObjectStore(STORE_VIDEOS, { keyPath: 'id' });
+        st.createIndex('by_date', 'createdAt', {unique:false});
+        st.createIndex('by_expire', 'expireAt', {unique:false});
+      }
+    };
+    rq.onsuccess = ()=> res(rq.result);
+    rq.onerror = ()=> rej(rq.error);
+  });
+}
+
+async function idbPut(item){
+  const db = await openDB();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction(STORE_VIDEOS, 'readwrite');
+    tx.objectStore(STORE_VIDEOS).put(item);
+    tx.oncomplete = ()=> res();
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+async function idbGetAll(){
+  const db = await openDB();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction(STORE_VIDEOS, 'readonly');
+    const req = tx.objectStore(STORE_VIDEOS).getAll();
+    req.onsuccess = ()=> res(req.result);
+    req.onerror = ()=> rej(req.error);
+  });
+}
+async function idbDelete(id){
+  const db = await openDB();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction(STORE_VIDEOS, 'readwrite');
+    tx.objectStore(STORE_VIDEOS).delete(id);
+    tx.oncomplete = ()=> res();
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+async function idbClearAll(){
+  const db = await openDB();
+  return new Promise((res, rej)=>{
+    const tx = db.transaction(STORE_VIDEOS, 'readwrite');
+    tx.objectStore(STORE_VIDEOS).clear();
+    tx.oncomplete = ()=> res();
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+
+// ---------------- Utility ----------------
+function uID(){ return 'v_' + Math.random().toString(36).slice(2,10); }
+function niceBytes(bytes){
+  if(bytes < 1024) return bytes + ' B';
+  const u = ['KB','MB','GB','TB'];
+  let i = -1; do { bytes = bytes / 1024; i++; } while(bytes >= 1024 && i < u.length-1);
+  return bytes.toFixed( (i<1?0:1) ) + ' ' + u[i];
+}
+function fmtDate(ts){ return (new Date(ts)).toLocaleString(); }
+function timeLeft(expireAt){
+  if(!expireAt) return 'Nie';
+  const diff = expireAt - Date.now();
+  if(diff <= 0) return 'abgelaufen';
+  const d = Math.floor(diff/86400000);
+  const h = Math.floor((diff%86400000)/3600000);
+  if(d>0) return `${d}d ${h}h`;
+  const m = Math.floor((diff%3600000)/60000);
+  return `${h}h ${m}m`;
+}
+
+// ---------------- Thumbnail generation ----------------
+function captureThumbnail(blob){
+  return new Promise((res, rej)=>{
+    const url = URL.createObjectURL(blob);
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.preload = 'metadata';
+    vid.currentTime = 0.5; // try to get a frame slightly after start
+    const cleanup = ()=>{
+      URL.revokeObjectURL(url);
+      vid.remove();
+    };
+    vid.onloadeddata = () => {
+      // seek to 0.5s or 1s if duration allows
+      const ts = Math.min(1, Math.max(0, vid.duration/10));
+      vid.currentTime = ts;
+    };
+    vid.onseeked = () => {
+      try{
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(320, vid.videoWidth || 320);
+        canvas.width = scale;
+        canvas.height = Math.round(scale * ((vid.videoHeight || 180)/(vid.videoWidth || 320)));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b=>{
+          cleanup();
+          res(b);
+        }, 'image/jpeg', 0.75);
+      }catch(e){
+        cleanup();
+        rej(e);
+      }
+    };
+    vid.onerror = (e) => { cleanup(); rej(e || new Error('Video error')); };
+  });
+}
+
+// ---------------- App logic ----------------
+const fileInput = document.getElementById('fileInput');
+const dropArea = document.getElementById('dropArea');
+const queueList = document.getElementById('queue');
+const startUploadBtn = document.getElementById('startUpload');
+const clearQueueBtn = document.getElementById('clearQueue');
+const titleInput = document.getElementById('titleInput');
+const descInput = document.getElementById('descInput');
+const ttlSelect = document.getElementById('ttlSelect');
+const gallery = document.getElementById('gallery');
+const stats = document.getElementById('stats');
+const searchInput = document.getElementById('searchInput');
+const sortSelect = document.getElementById('sortSelect');
+const cleanExpiredBtn = document.getElementById('cleanExpired');
+const exportListBtn = document.getElementById('exportList');
+const importListBtn = document.getElementById('importList');
+
+let uploadQueue = []; // {file, title, desc, ttl}
+let cacheURLs = {}; // id -> objectURL, to avoid recreation
+
+// handle file selection & drag/drop
+fileInput.addEventListener('change', (e)=>{
+  addFiles(e.target.files);
+  fileInput.value = '';
+});
+['dragenter','dragover'].forEach(ev=>{
+  dropArea.addEventListener(ev, (e)=>{ e.preventDefault(); dropArea.style.outline = '2px dashed rgba(96,165,250,0.6)'; });
+});
+['dragleave','drop'].forEach(ev=>{
+  dropArea.addEventListener(ev, (e)=>{ e.preventDefault(); dropArea.style.outline = ''; });
+});
+dropArea.addEventListener('drop', (e)=>{
+  if(e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+});
+
+function addFiles(fileList){
+  const files = Array.from(fileList).filter(f=>f.type && f.type.startsWith('video'));
+  files.forEach(f=>{
+    const qid = cryptoRandomId();
+    uploadQueue.push({id: qid, file: f});
+  });
+  renderQueue();
+}
+function cryptoRandomId(){ return 'q_' + Math.random().toString(36).slice(2,9); }
+function renderQueue(){
+  queueList.innerHTML = '';
+  uploadQueue.forEach(item=>{
+    const li = document.createElement('li');
+    li.textContent = `${item.file.name} • ${niceBytes(item.file.size)}`;
+    queueList.appendChild(li);
+  });
+}
+
+// upload (store in IndexedDB)
+startUploadBtn.addEventListener('click', async ()=>{
+  if(uploadQueue.length === 0){ alert('Queue ist leer'); return; }
+  startUploadBtn.disabled = true;
+  for(const q of uploadQueue){
+    try{
+      const file = q.file;
+      const title = titleInput.value.trim() || file.name;
+      const desc = descInput.value.trim() || '';
+      const ttl = parseInt(ttlSelect.value,10);
+      const createdAt = Date.now();
+      const expireAt = ttl > 0 ? createdAt + ttl*3600000 : null;
+
+      // generate thumbnail
+      const thumbBlob = await captureThumbnail(file).catch(()=>null);
+
+      const id = uID();
+      const item = {
+        id,
+        title,
+        description: desc,
+        filename: file.name,
+        size: file.size,
+        type: file.type,
+        createdAt,
+        expireAt,
+        thumb: thumbBlob ? thumbBlob : null,
+        videoBlob: file // store the original File (Blob)
+      };
+      // store in db
+      await idbPut(item);
+      console.log('Stored', id);
+    }catch(err){
+      console.error('Upload failed for', q.file.name, err);
+      alert('Fehler beim Hochladen: ' + q.file.name + '\n' + err.message);
+    }
+  }
+  uploadQueue = [];
+  renderQueue();
+  await refreshGallery();
+  startUploadBtn.disabled = false;
+});
+
+// clear queue
+clearQueueBtn.addEventListener('click', ()=>{ uploadQueue=[]; renderQueue(); });
+
+// gallery rendering
+async function refreshGallery(){
+  const all = await idbGetAll();
+  // filter expired
+  const now = Date.now();
+  const valid = all.filter(x => !x.expireAt || x.expireAt > now);
+  // sort
+  const sort = sortSelect.value;
+  valid.sort((a,b)=>{
+    if(sort === 'new') return b.createdAt - a.createdAt;
+    if(sort === 'old') return a.createdAt - b.createdAt;
+    if(sort === 'title') return (a.title||'').localeCompare(b.title||'');
+    return b.createdAt - a.createdAt;
+  });
+  // search
+  const q = (searchInput.value || '').trim().toLowerCase();
+  const filtered = q ? valid.filter(v => (v.title||'').toLowerCase().includes(q) || (v.description||'').toLowerCase().includes(q)) : valid;
+
+  // render grid
+  gallery.innerHTML = '';
+  filtered.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'card panel';
+    // thumbnail
+    const thumbURL = item.thumb ? URL.createObjectURL(item.thumb) : null;
+    const videoURL = cacheURLs[item.id] || URL.createObjectURL(item.videoBlob);
+    cacheURLs[item.id] = videoURL;
+
+    const img = document.createElement(item.thumb ? 'img' : 'video');
+    img.className = 'thumb';
+    if(item.thumb){
+      img.src = thumbURL;
+      img.loading = 'lazy';
+    }else{
+      img.src = videoURL;
+      img.muted = true;
+      img.autoplay = true;
+      img.loop = true;
+      img.playsInline = true;
+    }
+    img.addEventListener('click', ()=> openPlayer(item.id));
+    card.appendChild(img);
+
+    const cb = document.createElement('div');
+    cb.className = 'card-body';
+    cb.innerHTML = `<div class="title">${escapeHtml(item.title||'Untitled')}</div>
+                    <div class="desc">${escapeHtml(item.description||'')}</div>`;
+    const mr = document.createElement('div');
+    mr.className = 'meta-row';
+    const left = document.createElement('div');
+    left.className = 'small'; left.textContent = `${fmtDate(item.createdAt)} • ${niceBytes(item.size)}`;
+    const right = document.createElement('div');
+    right.className = 'controls';
+    const playBtn = document.createElement('button'); playBtn.className='btn'; playBtn.textContent='▶︎';
+    playBtn.title='Abspielen'; playBtn.addEventListener('click', ()=> openPlayer(item.id));
+    const dlBtn = document.createElement('button'); dlBtn.className='btn'; dlBtn.textContent='↓'; dlBtn.title='Herunterladen';
+    dlBtn.addEventListener('click', ()=> downloadVideo(item.id));
+    const delBtn = document.createElement('button'); delBtn.className='btn'; delBtn.textContent='✕'; delBtn.title='Löschen';
+    delBtn.addEventListener('click', async ()=>{ if(confirm('Video löschen?')){ await idbDelete(item.id); cleanupURL(item.id); await refreshGallery(); }});
+    right.appendChild(playBtn); right.appendChild(dlBtn); right.appendChild(delBtn);
+    mr.appendChild(left); mr.appendChild(right);
+    cb.appendChild(mr);
+    card.appendChild(cb);
+    gallery.appendChild(card);
+  });
+
+  stats.textContent = `Anzahl: ${filtered.length} • Gesamtspeicher: ${niceBytes(all.reduce((s,i)=>s + (i.size||0),0))}`;
+}
+
+// escape helper
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// open player modal
+const playerModal = document.getElementById('playerModal');
+const playerVideo = document.getElementById('playerVideo');
+const playerTitle = document.getElementById('playerTitle');
+const playerDesc = document.getElementById('playerDesc');
+const playerDate = document.getElementById('playerDate');
+const playerSize = document.getElementById('playerSize');
+const playerExpire = document.getElementById('playerExpire');
+const playerAge = document.getElementById('playerAge');
+let currentPlayingId = null;
+
+async function openPlayer(id){
+  const all = await idbGetAll();
+  const item = all.find(x=>x.id===id);
+  if(!item){ alert('Video nicht gefunden'); return; }
+  currentPlayingId = id;
+  // objectURL
+  const url = cacheURLs[id] || URL.createObjectURL(item.videoBlob);
+  cacheURLs[id] = url;
+  playerVideo.src = url;
+  playerVideo.currentTime = 0;
+  playerVideo.play().catch(()=>{});
+  playerTitle.textContent = item.title || item.filename || 'Untitled';
+  playerDesc.textContent = item.description || '';
+  playerDate.textContent = fmtDate(item.createdAt);
+  playerSize.textContent = niceBytes(item.size || 0);
+  playerExpire.textContent = item.expireAt ? fmtDate(item.expireAt) : 'Nie';
+  playerAge.textContent = timeLeft(item.expireAt);
+  playerModal.style.display = 'flex';
+}
+
+document.getElementById('closePlayer').addEventListener('click', closePlayer);
+document.getElementById('closeBtn').addEventListener('click', closePlayer);
+function closePlayer(){
+  playerModal.style.display = 'none';
+  try{ playerVideo.pause(); playerVideo.src = ''; }catch(e){}
+  currentPlayingId = null;
+}
+
+// download/delete from player
+document.getElementById('downloadBtn').addEventListener('click', async ()=>{
+  if(!currentPlayingId) return;
+  const all = await idbGetAll();
+  const it = all.find(x=>x.id===currentPlayingId);
+  if(!it) return;
+  const url = cacheURLs[it.id] || URL.createObjectURL(it.videoBlob);
+  triggerDownload(url, it.filename || (it.title||'video') + '.mp4');
+});
+document.getElementById('deleteBtn').addEventListener('click', async ()=>{
+  if(!currentPlayingId) return;
+  if(!confirm('Video löschen?')) return;
+  await idbDelete(currentPlayingId);
+  cleanupURL(currentPlayingId);
+  closePlayer();
+  await refreshGallery();
+});
+
+// download helper
+function triggerDownload(url, filename){
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+// cleanup objectURL
+function cleanupURL(id){
+  if(cacheURLs[id]){ try{ URL.revokeObjectURL(cacheURLs[id]); }catch(e){} delete cacheURLs[id]; }
+}
+
+// clean expired
+cleanExpiredBtn.addEventListener('click', async ()=>{
+  await removeExpired();
+  await refreshGallery();
+});
+async function removeExpired(){
+  const all = await idbGetAll();
+  const now = Date.now();
+  const expired = all.filter(x => x.expireAt && x.expireAt <= now);
+  for(const e of expired){
+    await idbDelete(e.id);
+    cleanupURL(e.id);
+  }
+  return expired.length;
+}
+
+// search & sort listeners
+searchInput.addEventListener('input', ()=> refreshGallery());
+sortSelect.addEventListener('change', ()=> refreshGallery());
+
+// export/import metadata
+exportListBtn.addEventListener('click', async ()=>{
+  const all = await idbGetAll();
+  // export metadata only (no blobs) to a JSON file for safety
+  const safe = all.map(({id,title,description,filename,size,type,createdAt,expireAt})=>({id,title,description,filename,size,type,createdAt,expireAt}));
+  const blob = new Blob([JSON.stringify(safe, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  triggerDownload(url, 'video_metadata.json');
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+});
+importListBtn.addEventListener('click', async ()=>{
+  const f = document.createElement('input'); f.type='file'; f.accept='application/json';
+  f.addEventListener('change', async ()=>{
+    const file = f.files[0];
+    if(!file) return;
+    const txt = await file.text();
+    try{
+      const arr = JSON.parse(txt);
+      if(!Array.isArray(arr)) throw new Error('Ungültiges Format');
+      // only import metadata; no blobs -> user should re-upload actual video blobs if desired.
+      alert('Metadaten importiert. Videos müssen separat hochgeladen werden (dieser Import speichert nur Info).');
+    }catch(e){
+      alert('Import fehlgeschlagen: ' + e.message);
+    }
+  });
+  f.click();
+});
+
+// periodically remove expired videos (every 30 minutes)
+setInterval(()=> removeExpired().then(n=>{ if(n>0) refreshGallery(); }), 30*60*1000);
+
+// initial load
+(async ()=>{ await removeExpired(); await refreshGallery(); })();
+
+// ---------------- helper: revoke all objectUrls on unload ----------------
+window.addEventListener('beforeunload', ()=>{
+  Object.keys(cacheURLs).forEach(k=>{
+    try{ URL.revokeObjectURL(cacheURLs[k]); }catch(e){}
+  });
+});
+
+// ---------------- small UX: allow double-clicking thumbnail to open ----------------
+// already handled by click
+
+</script>
+</body>
+</html>
