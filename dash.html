@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Multifunktionales Dashboard — One-File</title>
+<style>
+  :root{
+    --bg:#0f1724; --panel:#0b1220; --muted:#9aa7bd; --accent:#5eead4; --card:#0f1724;
+    --glass: rgba(255,255,255,0.03);
+    --glass-2: rgba(255,255,255,0.02);
+  }
+  [data-theme="light"]{
+    --bg:#f6f8fb; --panel:#ffffff; --muted:#475569; --accent:#06b6d4; --card:#ffffff;
+    --glass: rgba(15,23,36,0.02); --glass-2: rgba(15,23,36,0.01);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+  body{background:linear-gradient(180deg,var(--bg),#071028); color: #E6EEF6; display:flex; gap:18px; padding:18px;}
+  .app{flex:1; display:grid; grid-template-columns:260px 1fr; gap:18px; min-height:calc(100vh - 36px);}
+  /* SIDEBAR */
+  .sidebar{background:var(--panel); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:12px; min-height:120px; width:260px;}
+  .brand{display:flex; align-items:center; gap:10px}
+  .logo{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#042028}
+  .brand h1{font-size:16px;margin:0}
+  .user{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;background:var(--glass);}
+  .user img{width:36px;height:36px;border-radius:50%;}
+  .menu{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .menu button{background:transparent;border:0;color:var(--muted);padding:10px;border-radius:8px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px}
+  .menu button:hover{background:var(--glass)}
+  .menu button.active{background:linear-gradient(90deg,var(--accent),#7c3aed); color:#021018;font-weight:600}
+  .sidebar .modules-title{font-size:12px;color:var(--muted);padding:8px 6px}
+
+  /* MAIN */
+  .main{display:flex;flex-direction:column;gap:12px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border-radius:12px;background:linear-gradient(180deg,var(--panel),var(--glass));}
+  .search{display:flex;align-items:center;gap:8px;background:var(--glass-2);padding:8px;border-radius:8px;flex:1}
+  .search input{background:transparent;border:0;outline:0;color:inherit;width:100%}
+  .top-actions{display:flex;gap:8px;align-items:center}
+  .btn{padding:8px 12px;border-radius:8px;border:0;background:var(--glass);color:var(--muted);cursor:pointer}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),#7c3aed);color:#021018;font-weight:600}
+
+  /* GRID */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+  .card{background:linear-gradient(180deg,var(--card),var(--glass));padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.6);min-height:80px}
+  .col-4{grid-column:span 4}
+  .col-6{grid-column:span 6}
+  .col-8{grid-column:span 8}
+  .col-12{grid-column:span 12}
+  .flex{display:flex;gap:8px;align-items:center}
+  h2{margin:0;font-size:16px}
+
+  /* tasks */
+  .task{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:var(--glass-2);margin-bottom:8px}
+  .task .left{display:flex;gap:8px;align-items:center}
+  .checkbox{width:18px; height:18px;border-radius:4px;border:2px solid var(--muted);display:inline-block}
+  .checkbox.checked{background:var(--accent);border-color:transparent}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+
+  /* notes */
+  .note{padding:10px;border-radius:8px;background:var(--glass);margin-bottom:8px}
+
+  /* files */
+  .file-item{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;background:var(--glass-2);margin-bottom:8px}
+
+  /* messages */
+  .msg{padding:8px;border-radius:8px;background:var(--glass);margin-bottom:8px}
+
+  /* small */
+  .muted{color:var(--muted);font-size:13px}
+  .small{font-size:13px}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:8px}
+
+  /* calendar */
+  .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal-day{padding:8px;border-radius:8px;background:var(--glass);min-height:78px}
+  .cal-day .date{font-weight:600}
+  .event{padding:6px;border-radius:6px;background:linear-gradient(90deg,#f97316,#fb7185);color:#021018;margin-top:6px;font-size:13px}
+
+  /* responsive */
+  @media (max-width:900px){
+    .app{grid-template-columns:1fr; padding:12px}
+    .sidebar{order:2;width:100%}
+    .main{order:1}
+    .grid{grid-template-columns:repeat(6,1fr)}
+    .col-4{grid-column:span 6}
+    .col-6{grid-column:span 6}
+  }
+
+  /* tiny helpers */
+  .drag-handle{cursor:grab;padding:6px;border-radius:6px;background:transparent}
+  .hidden{display:none}
+  .pill{padding:6px 10px;border-radius:999px;background:var(--glass);font-size:13px}
+
+  /* settings modal */
+  .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:40}
+  .modal .modal-card{width:720px;background:var(--panel);border-radius:12px;padding:16px}
+  .close{margin-left:auto;cursor:pointer}
+  .small-input{padding:8px;border-radius:8px;border:0;background:var(--glass);color:inherit;width:100%}
+  .file-drop{padding:18px;border-radius:10px;border:2px dashed var(--glass-2);text-align:center;color:var(--muted)}
+
+  /* footer note */
+  .note-footer{font-size:12px;color:var(--muted);margin-top:10px}
+</style>
+</head>
+<body>
+<div class="app" id="app" data-theme="">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo">DB</div>
+      <div>
+        <h1>Edu-Dashboard</h1>
+        <div class="muted" style="font-size:12px">Local • One-File</div>
+      </div>
+    </div>
+
+    <div class="user">
+      <img src="https://api.dicebear.com/6.x/identicon/svg?seed=EduUser" alt="avatar" />
+      <div style="flex:1">
+        <div style="font-weight:600">Nutzer</div>
+        <div class="muted small" id="usernameNote">Gast</div>
+      </div>
+      <div class="pill" id="themeToggle" title="Theme wechseln">🌙</div>
+    </div>
+
+    <div class="modules-title">Module (Drag zum Umordnen)</div>
+    <div class="menu" id="menuModules">
+      <!-- buttons inserted by JS -->
+    </div>
+
+    <div style="margin-top:auto">
+      <div class="muted small">Einstellungen</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn" id="openSettings">Einstellungen</button>
+        <button class="btn" id="resetBtn" title="Lokal zurücksetzen">Reset</button>
+      </div>
+      <div class="note-footer">Alle Daten lokal im Browser gespeichert.</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="search"><input id="globalSearch" placeholder="Suche: Aufgaben, Notizen, Dateien..." /></div>
+      <div class="top-actions">
+        <div class="muted small" id="clock"></div>
+        <button class="btn" id="quickAddBtn">+ Schnell hinzufügen</button>
+        <button class="btn primary" id="exportBtn">Export</button>
+      </div>
+    </div>
+
+    <div class="grid" id="grid">
+      <!-- widgets added by JS -->
+    </div>
+  </main>
+</div>
+
+<!-- modal templates -->
+<div id="modalRoot" class="hidden"></div>
+
+<script>
+/*
+  Multifunktionales One-File Dashboard
+  - Module system: modules can be toggled and reordered from the sidebar
+  - Persistence in localStorage
+  - Modules: Overview, Tasks, Notes, Files (simulated), Calendar, Messages, Stats
+  - Small chart engine using canvas (no external libs)
+  - Drag & drop for sidebar modules (reorder)
+  - Theme switch (light/dark)
+*/
+
+(function(){
+  // ---------- Utilities ----------
+  const $ = (sel,root=document)=> root.querySelector(sel);
+  const qs = (sel,root=document)=> Array.from(root.querySelectorAll(sel));
+
+  const LS = {
+    get(k, fallback){
+      try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback }
+    },
+    set(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+  };
+
+  // default modules & order
+  const DEFAULT_MODULES = [
+    {id:'overview', title:'Übersicht', col:8, visible:true},
+    {id:'tasks', title:'Aufgaben', col:4, visible:true},
+    {id:'notes', title:'Notizen', col:4, visible:true},
+    {id:'files', title:'Dateien', col:4, visible:true},
+    {id:'calendar', title:'Kalender', col:8, visible:true},
+    {id:'messages', title:'Nachrichten', col:6, visible:true},
+    {id:'stats', title:'Statistik', col:6, visible:true}
+  ];
+
+  // ---------- App State ----------
+  const state = {
+    modules: LS.get('modulesOrder', DEFAULT_MODULES),
+    tasks: LS.get('tasks', [
+      {id: idGen(), title:'Mathe Hausaufgaben', done:false, tags:['Mathe'], due: offsetDate(2)},
+      {id: idGen(), title:'Biologie Projekt starten', done:false, tags:['Biologie'], due: offsetDate(5)}
+    ]),
+    notes: LS.get('notes', [
+      {id:idGen(), title:'Meeting Notizen', content:'Kurze Auflistung: 1) Stundenplan...'},
+    ]),
+    files: LS.get('files', []),
+    messages: LS.get('messages', [
+      {id:idGen(), from:'Admin', text:'Willkommen im Dashboard!', time: new Date().toISOString()}
+    ]),
+    events: LS.get('events', [
+      {id:idGen(), title:'Klausur Mathe', date: offsetDate(4), color:'#f97316'}
+    ]),
+    settings: LS.get('settings', {theme:'dark', username:'Gast'})
+  };
+
+  // ---------- Helpers ----------
+  function idGen(){ return 'id_'+Math.random().toString(36).slice(2,9) }
+  function offsetDate(days){ const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10) }
+  function formatDateISO(d){ return new Date(d).toLocaleDateString(); }
+  function saveAll(){ LS.set('modulesOrder', state.modules); LS.set('tasks', state.tasks); LS.set('notes', state.notes); LS.set('files', state.files); LS.set('messages', state.messages); LS.set('events', state.events); LS.set('settings', state.settings); }
+
+  // ---------- DOM refs ----------
+  const menuModules = $('#menuModules');
+  const grid = $('#grid');
+  const modalRoot = $('#modalRoot');
+  const usernameNote = $('#usernameNote');
+  const themeToggle = $('#themeToggle');
+  const appEl = $('#app');
+
+  // ---------- Init ----------
+  function init(){
+    // theme
+    appEl.setAttribute('data-theme', state.settings.theme === 'light' ? 'light' : '');
+    themeToggle.textContent = state.settings.theme === 'light' ? '🌞' : '🌙';
+    usernameNote.textContent = state.settings.username || 'Gast';
+
+    renderSidebar();
+    renderGrid();
+    attachTopbar();
+    attachMenuActions();
+    startClock();
+    bindDragReorder();
+  }
+
+  // ---------- Sidebar / Modules ----------
+  function renderSidebar(){
+    menuModules.innerHTML = '';
+    state.modules.forEach(mod => {
+      const btn = document.createElement('button');
+      btn.className = mod.visible ? (mod.active ? 'active' : '') : '';
+      btn.draggable = true;
+      btn.dataset.id = mod.id;
+      btn.innerHTML = `
+        <span class="drag-handle">≡</span>
+        <span style="flex:1">${mod.title}</span>
+        <span class="pill">${mod.visible ? 'sichtbar' : 'aus'}</span>
+      `;
+      // left click: toggle visibility
+      btn.addEventListener('click', (e)=>{
+        // if click on drag-handle -> ignore
+        if (e.target.closest('.drag-handle')) return;
+        toggleModuleVisibility(mod.id);
+      });
+      menuModules.appendChild(btn);
+    });
+  }
+
+  function toggleModuleVisibility(id){
+    const m = state.modules.find(x=>x.id===id);
+    if (!m) return;
+    m.visible = !m.visible;
+    saveAll();
+    renderSidebar();
+    renderGrid();
+  }
+
+  // drag reorder logic
+  function bindDragReorder(){
+    let dragSrc = null;
+    menuModules.addEventListener('dragstart', (e)=>{
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      dragSrc = btn.dataset.id;
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    menuModules.addEventListener('dragover', (e)=>{ e.preventDefault(); });
+    menuModules.addEventListener('drop', (e)=>{
+      const btn = e.target.closest('button');
+      if (!btn || !dragSrc) return;
+      const targetId = btn.dataset.id;
+      const fromIdx = state.modules.findIndex(m=>m.id===dragSrc);
+      const toIdx = state.modules.findIndex(m=>m.id===targetId);
+      if (fromIdx<0||toIdx<0) return;
+      const [item] = state.modules.splice(fromIdx,1);
+      state.modules.splice(toIdx,0,item);
+      saveAll();
+      renderSidebar();
+      renderGrid();
+      dragSrc = null;
+    });
+  }
+
+  // ---------- Grid / Widgets ----------
+  function renderGrid(){
+    grid.innerHTML = '';
+    // create widgets for visible modules in order
+    state.modules.forEach(m=>{
+      if (!m.visible) return;
+      const wrap = document.createElement('div');
+      const colClass = `col-${m.col || 6}`;
+      wrap.className = `card ${colClass}`;
+      wrap.dataset.id = m.id;
+      wrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h2>${m.title}</h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn" data-action="refresh">⟳</button>
+          <button class="btn" data-action="settings">⚙</button>
+        </div>
+      </div>`;
+      // attach content based on id
+      const content = document.createElement('div');
+      content.className = 'module-content';
+      wrap.appendChild(content);
+      grid.appendChild(wrap);
+
+      // per-module render
+      switch(m.id){
+        case 'overview': renderOverview(content); break;
+        case 'tasks': renderTasks(content); break;
+        case 'notes': renderNotes(content); break;
+        case 'files': renderFiles(content); break;
+        case 'calendar': renderCalendar(content); break;
+        case 'messages': renderMessages(content); break;
+        case 'stats': renderStats(content); break;
+        default: content.textContent = 'Modul nicht gefunden'; break;
+      }
+
+      // small action handlers
+      wrap.querySelectorAll('[data-action="refresh"]').forEach(b=>b.addEventListener('click', ()=>{ renderGrid() }));
+      wrap.querySelectorAll('[data-action="settings"]').forEach(b=>b.addEventListener('click', ()=>{ openSettings() }));
+    });
+  }
+
+  // ---------- Module: Overview ----------
+  function renderOverview(root){
+    root.innerHTML = '';
+    const left = document.createElement('div');
+    left.style.display='flex';
+    left.style.gap='12px';
+    left.innerHTML = `
+      <div style="flex:1">
+        <div class="muted">Willkommen</div>
+        <h2>Guten Tag, ${state.settings.username || 'Gast'}</h2>
+        <div class="muted" style="margin-top:8px">Schnellaktionen</div>
+        <div class="controls">
+          <button class="btn" id="addTaskQuick">+ Aufgabe</button>
+          <button class="btn" id="addNoteQuick">+ Notiz</button>
+          <button class="btn" id="addEventQuick">+ Ereignis</button>
+        </div>
+      </div>
+      <div style="width:320px">
+        <div class="muted">Heute</div>
+        <div style="margin-top:8px">
+          <div class="card" style="padding:10px;background:var(--glass)"><strong>${new Date().toLocaleDateString()}</strong><div class="muted small">Termine & Aufgaben für heute</div></div>
+        </div>
+      </div>
+    `;
+    root.appendChild(left);
+
+    // handlers
+    root.querySelector('#addTaskQuick').addEventListener('click', ()=> quickAdd('task'));
+    root.querySelector('#addNoteQuick').addEventListener('click', ()=> quickAdd('note'));
+    root.querySelector('#addEventQuick').addEventListener('click', ()=> quickAdd('event'));
+  }
+
+  // ---------- Module: Tasks ----------
+  function renderTasks(root){
+    root.innerHTML = '';
+    const list = document.createElement('div');
+    state.tasks.sort((a,b)=> (a.done?1:0) - (b.done?1:0));
+    state.tasks.forEach(t=>{
+      const el = document.createElement('div');
+      el.className = 'task';
+      el.innerHTML = `<div class="left"><div class="checkbox ${t.done ? 'checked':''}" data-id="${t.id}"></div>
+        <div>
+          <div style="font-weight:600">${t.title}</div>
+          <div class="muted small">${t.tags? t.tags.join(', '):''} • ${t.due? formatDateISO(t.due):''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" data-id="${t.id}" data-action="edit">✎</button>
+        <button class="btn" data-id="${t.id}" data-action="delete">🗑</button>
+      </div>`;
+      list.appendChild(el);
+    });
+    const addBox = document.createElement('div');
+    addBox.style.marginTop='8px';
+    addBox.innerHTML = `<input class="small-input" id="newTaskTitle" placeholder="Neue Aufgabe..."/> <div style="display:flex;gap:8px;margin-top:8px"><input id="newTaskTags" class="small-input" placeholder="Tags (Komma)"/><input id="newTaskDue" class="small-input" type="date"/><button class="btn primary" id="createTask">Hinzufügen</button></div>`;
+    root.appendChild(list);
+    root.appendChild(addBox);
+
+    // events
+    root.querySelectorAll('.checkbox').forEach(ch=>{
+      ch.addEventListener('click', (e)=>{ const id=ch.dataset.id; toggleTaskDone(id); });
+    });
+    root.querySelectorAll('[data-action="edit"]').forEach(b=>{
+      b.addEventListener('click', ()=> openTaskEditor(b.dataset.id));
+    });
+    root.querySelectorAll('[data-action="delete"]').forEach(b=>{
+      b.addEventListener('click', ()=> { state.tasks = state.tasks.filter(t=>t.id!==b.dataset.id); saveAll(); renderGrid(); });
+    });
+    $('#createTask').addEventListener('click', ()=>{
+      const title = $('#newTaskTitle').value.trim();
+      if(!title) return alert('Titel bitte');
+      const tags = $('#newTaskTags').value.split(',').map(s=>s.trim()).filter(Boolean);
+      const due = $('#newTaskDue').value || null;
+      state.tasks.push({id:idGen(), title, done:false, tags, due});
+      saveAll(); renderGrid();
+    });
+  }
+
+  function toggleTaskDone(id){
+    const t = state.tasks.find(x=>x.id===id);
+    if(!t) return;
+    t.done = !t.done;
+    saveAll(); renderGrid();
+  }
+
+  function openTaskEditor(id){
+    const t = state.tasks.find(x=>x.id===id);
+    if(!t) return;
+    openModal(`<h3>Aufgabe bearbeiten</h3>
+      <input id="editTitle" class="small-input" value="${escapeHtml(t.title)}" />
+      <input id="editTags" class="small-input" value="${(t.tags||[]).join(',')}" />
+      <input id="editDue" class="small-input" type="date" value="${t.due || ''}" />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn primary" id="saveTask">Speichern</button>
+        <button class="btn" id="cancelTask">Abbrechen</button>
+      </div>`, ()=>{
+        $('#saveTask').addEventListener('click', ()=>{
+          t.title = $('#editTitle').value;
+          t.tags = $('#editTags').value.split(',').map(s=>s.trim()).filter(Boolean);
+          t.due = $('#editDue').value || null;
+          saveAll(); closeModal(); renderGrid();
+        });
+        $('#cancelTask').addEventListener('click', ()=> closeModal());
+      });
+  }
+
+  // ---------- Module: Notes ----------
+  function renderNotes(root){
+    root.innerHTML = '';
+    const list = document.createElement('div');
+    state.notes.forEach(n=>{
+      const el = document.createElement('div');
+      el.className = 'note';
+      el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${escapeHtml(n.title)}</strong><div><button class="btn" data-id="${n.id}" data-action="edit">✎</button><button class="btn" data-id="${n.id}" data-action="del">🗑</button></div></div><div style="margin-top:8px">${escapeHtml(n.content)}</div>`;
+      list.appendChild(el);
+    });
+    const addBox = document.createElement('div');
+    addBox.style.marginTop='8px';
+    addBox.innerHTML = `<input id="newNoteTitle" class="small-input" placeholder="Titel"/><textarea id="newNoteContent" class="small-input" placeholder="Inhalt" style="min-height:80px;margin-top:8px"></textarea><div style="margin-top:8px"><button class="btn primary" id="createNote">Erstellen</button></div>`;
+    root.appendChild(list);
+    root.appendChild(addBox);
+    root.querySelectorAll('[data-action="edit"]').forEach(b=>{
+      b.addEventListener('click', ()=> {
+        const n = state.notes.find(x=>x.id===b.dataset.id);
+        if(!n) return;
+        openModal(`<h3>Notiz bearbeiten</h3><input id="nTitle" class="small-input" value="${escapeHtml(n.title)}"/><textarea id="nContent" class="small-input" style="min-height:120px">${escapeHtml(n.content)}</textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="saveNote">Speichern</button><button class="btn" id="cancelNote">Abbrechen</button></div>`, ()=>{
+          $('#saveNote').addEventListener('click', ()=>{ n.title = $('#nTitle').value; n.content = $('#nContent').value; saveAll(); closeModal(); renderGrid(); });
+          $('#cancelNote').addEventListener('click', closeModal);
+        });
+      });
+    });
+    root.querySelectorAll('[data-action="del"]').forEach(b=>{
+      b.addEventListener('click', ()=> { state.notes = state.notes.filter(x=>x.id!==b.dataset.id); saveAll(); renderGrid(); });
+    });
+    $('#createNote').addEventListener('click', ()=>{
+      const t = $('#newNoteTitle').value.trim();
+      const c = $('#newNoteContent').value.trim();
+      if(!t) return alert('Titel eingeben');
+      state.notes.push({id:idGen(), title:t, content:c});
+      saveAll(); renderGrid();
+    });
+  }
+
+  // ---------- Module: Files (simulated) ----------
+  function renderFiles(root){
+    root.innerHTML = '';
+    const list = document.createElement('div');
+    state.files.forEach(f=>{
+      const el = document.createElement('div');
+      el.className = 'file-item';
+      el.innerHTML = `<div>
+        <div style="font-weight:600">${escapeHtml(f.name)}</div>
+        <div class="muted small">${f.size} • ${new Date(f.time).toLocaleString()}</div>
+      </div>
+      <div style="display:flex;gap:8px"><button class="btn" data-id="${f.id}" data-action="download">↧</button><button class="btn" data-id="${f.id}" data-action="del">🗑</button></div>`;
+      list.appendChild(el);
+    });
+    const addBox = document.createElement('div');
+    addBox.style.marginTop='8px';
+    addBox.innerHTML = `<div class="file-drop" id="dropZone">Ziehen & Ablegen oder Klick um "hochzuladen" (simuliert)</div>`;
+    root.appendChild(list);
+    root.appendChild(addBox);
+
+    // drop handling (simulated store only metadata and content as base64)
+    const dz = $('#dropZone');
+    dz.addEventListener('click', ()=> {
+      const inp = document.createElement('input'); inp.type='file';
+      inp.onchange = async (e)=> {
+        const f = inp.files[0];
+        if(!f) return;
+        const data = await readFileAsBase64(f);
+        state.files.push({id:idGen(), name:f.name, size:prettyBytes(f.size), time:new Date().toISOString(), content:data});
+        saveAll(); renderGrid();
+      };
+      inp.click();
+    });
+    dz.addEventListener('dragover', (e)=>{ e.preventDefault(); dz.style.borderColor='var(--accent)'; });
+    dz.addEventListener('dragleave', (e)=>{ dz.style.borderColor=''; });
+    dz.addEventListener('drop', async (e)=>{ e.preventDefault(); dz.style.borderColor=''; const f = e.dataTransfer.files[0]; if(!f) return; const data = await readFileAsBase64(f); state.files.push({id:idGen(), name:f.name, size:prettyBytes(f.size), time:new Date().toISOString(), content:data}); saveAll(); renderGrid(); });
+
+    root.querySelectorAll('[data-action="download"]').forEach(b=>{
+      b.addEventListener('click', ()=> {
+        const f = state.files.find(x=>x.id===b.dataset.id);
+        if(!f) return;
+        const a = document.createElement('a');
+        a.href = f.content;
+        a.download = f.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
+    });
+    root.querySelectorAll('[data-action="del"]').forEach(b=>{
+      b.addEventListener('click', ()=> {
+        state.files = state.files.filter(x=>x.id!==b.dataset.id);
+        saveAll(); renderGrid();
+      });
+    });
+  }
+
+  function readFileAsBase64(file){
+    return new Promise((res,rej)=>{
+      const reader=new FileReader();
+      reader.onload = ()=>res(reader.result);
+      reader.onerror = ()=>rej('err');
+      reader.readAsDataURL(file);
+    });
+  }
+  function prettyBytes(n){
+    if(n<1024) return n+' B';
+    if(n<1024*1024) return Math.round(n/1024)+' KB';
+    return Math.round(n/(1024*1024))+' MB';
+  }
+
+  // ---------- Module: Calendar ----------
+  function renderCalendar(root){
+    root.innerHTML = '';
+    const header = document.createElement('div');
+    header.className = 'flex';
+    header.innerHTML = `<div><div class="muted">Monat</div><strong>${new Date().toLocaleString(undefined,{month:'long', year:'numeric'})}</strong></div>
+      <div style="margin-left:auto"><button class="btn" id="addCal">+ Termin</button></div>`;
+    root.appendChild(header);
+
+    const gridCal = document.createElement('div');
+    gridCal.className = 'calendar-grid';
+    const today = new Date();
+    // simple: show current month days
+    const year = today.getFullYear(), month = today.getMonth();
+    const first = new Date(year,month,1);
+    const startDow = first.getDay(); // 0-6 (Sun-Sat)
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    // add blank cells for start
+    for(let i=0;i<startDow;i++){ const c=document.createElement('div'); c.className='cal-day'; c.innerHTML=''; gridCal.appendChild(c); }
+    for(let d=1; d<=daysInMonth; d++){
+      const dayISO = new Date(year,month,d).toISOString().slice(0,10);
+      const cell = document.createElement('div');
+      cell.className='cal-day';
+      const dayTitle = document.createElement('div'); dayTitle.className='date'; dayTitle.textContent = d;
+      cell.appendChild(dayTitle);
+      // events for day
+      const evs = state.events.filter(e=> e.date === dayISO);
+      evs.forEach(ev=>{
+        const evEl = document.createElement('div');
+        evEl.className='event';
+        evEl.style.background = ev.color || 'linear-gradient(90deg,#f97316,#fb7185)';
+        evEl.textContent = ev.title;
+        cell.appendChild(evEl);
+      });
+      cell.addEventListener('click', ()=> {
+        openModal(`<h3>Termin erstellen</h3><input id="evTitle" class="small-input" placeholder="Titel"/><input id="evDate" class="small-input" type="date" value="${dayISO}"/><input id="evColor" class="small-input" placeholder="Farbe HEX" value="#f97316"/><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="saveEv">Speichern</button><button class="btn" id="cancelEv">Abbrechen</button></div>`, ()=>{
+          $('#saveEv').addEventListener('click', ()=> {
+            const title = $('#evTitle').value.trim(); const date = $('#evDate').value; const color = $('#evColor').value || '#f97316';
+            if(!title || !date) return alert('Titel & Datum');
+            state.events.push({id:idGen(), title, date, color}); saveAll(); closeModal(); renderGrid();
+          });
+          $('#cancelEv').addEventListener('click', closeModal);
+        });
+      });
+      gridCal.appendChild(cell);
+    }
+
+    root.appendChild(gridCal);
+    $('#addCal').addEventListener('click', ()=> {
+      openModal(`<h3>Neuer Termin</h3><input id="evTitle" class="small-input" placeholder="Titel"/><input id="evDate" class="small-input" type="date" value="${new Date().toISOString().slice(0,10)}"/><input id="evColor" class="small-input" placeholder="Farbe HEX" value="#06b6d4"/><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="saveEv">Speichern</button><button class="btn" id="cancelEv">Abbrechen</button></div>`, ()=>{
+        $('#saveEv').addEventListener('click', ()=> {
+          const title = $('#evTitle').value.trim(); const date = $('#evDate').value; const color = $('#evColor').value || '#06b6d4';
+          if(!title || !date) return alert('Titel & Datum');
+          state.events.push({id:idGen(), title, date, color}); saveAll(); closeModal(); renderGrid();
+        });
+        $('#cancelEv').addEventListener('click', closeModal);
+      });
+    });
+  }
+
+  // ---------- Module: Messages ----------
+  function renderMessages(root){
+    root.innerHTML = '';
+    const list = document.createElement('div');
+    state.messages.slice().reverse().forEach(m=>{
+      const el = document.createElement('div');
+      el.className = 'msg';
+      el.innerHTML = `<div style="display:flex;justify-content:space-between"><strong>${escapeHtml(m.from)}</strong><div class="muted small">${new Date(m.time).toLocaleString()}</div></div><div style="margin-top:6px">${escapeHtml(m.text)}</div>`;
+      list.appendChild(el);
+    });
+    const box = document.createElement('div');
+    box.style.marginTop='8px';
+    box.innerHTML = `<input id="msgFrom" class="small-input" placeholder="Von"/><textarea id="msgText" class="small-input" placeholder="Nachricht" style="min-height:80px;margin-top:8px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="sendMsg">Senden</button></div>`;
+    root.appendChild(list); root.appendChild(box);
+
+    $('#sendMsg').addEventListener('click', ()=> {
+      const from = $('#msgFrom').value.trim() || 'Gast';
+      const text = $('#msgText').value.trim();
+      if(!text) return alert('Nachricht schreiben');
+      state.messages.push({id:idGen(), from, text, time: new Date().toISOString()});
+      saveAll(); renderGrid();
+    });
+  }
+
+  // ---------- Module: Stats ----------
+  function renderStats(root){
+    root.innerHTML = '';
+    const statRow = document.createElement('div');
+    statRow.className = 'flex';
+    statRow.innerHTML = `<div style="flex:1">
+        <div class="muted">Nutzer-Aktivität</div>
+        <canvas id="chartCanvas" width="600" height="180" style="width:100%;height:120px;margin-top:8px"></canvas>
+      </div>
+      <div style="width:220px">
+        <div class="muted">Kurz</div>
+        <div style="margin-top:8px">
+          <div class="card" style="padding:10px;background:var(--glass)"><div style="font-weight:700">${state.tasks.filter(t=>!t.done).length}</div><div class="muted small">Offene Aufgaben</div></div>
+          <div class="card" style="padding:10px;background:var(--glass);margin-top:8px"><div style="font-weight:700">${state.notes.length}</div><div class="muted small">Notizen</div></div>
+        </div>
+      </div>`;
+    root.appendChild(statRow);
+
+    // small chart: tasks per day (next 7)
+    const canvas = root.querySelector('#chartCanvas');
+    drawSimpleBarChart(canvas, generateChartData());
+  }
+
+  function generateChartData(){
+    // next 7 days: count tasks due each day
+    const days = [];
+    for(let i=0;i<7;i++){
+      const d = new Date(); d.setDate(d.getDate()+i);
+      const iso = d.toISOString().slice(0,10);
+      const count = state.tasks.filter(t=>t.due === iso).length;
+      days.push({label: d.toLocaleDateString(undefined,{weekday:'short'}), value: count});
+    }
+    return days;
+  }
+
+  // draw simple bar chart on canvas
+  function drawSimpleBarChart(canvas, data){
+    const ctx = canvas.getContext('2d');
+    const DPR = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth * DPR, height = canvas.clientHeight * DPR;
+    canvas.width = width; canvas.height = height;
+    ctx.clearRect(0,0,width,height);
+    // background
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--card').trim() || '#0b1220';
+    ctx.fillRect(0,0,width,height);
+    // compute max
+    const max = Math.max(1, ...data.map(d=>d.value));
+    const padding = 28*DPR;
+    const gap = (width - padding*2) / (data.length*1.2);
+    data.forEach((d,i)=>{
+      const x = padding + i*(gap*1.2);
+      const h = (height - padding*2) * (d.value / max);
+      const y = height - padding - h;
+      // bar
+      const grad = ctx.createLinearGradient(x,y,x,y+h);
+      grad.addColorStop(0, getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#06b6d4');
+      grad.addColorStop(1, '#7c3aed');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, gap, h);
+      // label
+      ctx.fillStyle = '#9aa7bd';
+      ctx.font = `${10*DPR}px sans-serif`;
+      ctx.fillText(d.label, x, height - padding + 14*DPR);
+      // value
+      ctx.fillStyle = '#E6EEF6';
+      ctx.fillText(String(d.value), x, y - 4*DPR);
+    });
+  }
+
+  // ---------- Topbar / Utilities ----------
+  function attachTopbar(){
+    $('#globalSearch').addEventListener('input', (e)=>{
+      const q = e.target.value.toLowerCase().trim();
+      if(!q) { renderGrid(); return; }
+      // filter modules to those matching tasks/notes/files/messages
+      // simple: highlight modules where matches exist
+      // We'll open a modal listing results
+      const results = [];
+      state.tasks.forEach(t=>{ if(t.title.toLowerCase().includes(q) || (t.tags || []).join(' ').toLowerCase().includes(q)) results.push({type:'Aufgabe', title:t.title}) });
+      state.notes.forEach(n=>{ if(n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)) results.push({type:'Notiz', title:n.title}) });
+      state.files.forEach(f=>{ if(f.name.toLowerCase().includes(q)) results.push({type:'Datei', title:f.name}) });
+      state.messages.forEach(m=>{ if(m.text.toLowerCase().includes(q) || m.from.toLowerCase().includes(q)) results.push({type:'Nachricht', title:m.text.slice(0,80)}) });
+      openModal(`<h3>Suche: "${escapeHtml(q)}"</h3><div>${results.length ? results.map(r=>`<div style="padding:6px;border-radius:6px;background:var(--glass);margin-bottom:6px"><strong>${r.type}</strong> — ${escapeHtml(r.title)}</div>`).join('') : '<div class="muted">Keine Ergebnisse</div>'}</div><div style="margin-top:8px"><button class="btn" id="closeRes">Schließen</button></div>`, ()=>{ $('#closeRes').addEventListener('click', closeModal); });
+    });
+
+    $('#quickAddBtn').addEventListener('click', ()=> quickAdd('task'));
+    $('#exportBtn').addEventListener('click', ()=> exportAll());
+    $('#openSettings').addEventListener('click', openSettings);
+    $('#resetBtn').addEventListener('click', ()=> {
+      if(confirm('Lokal alle gespeicherten Daten löschen?')) {
+        localStorage.clear();
+        location.reload();
+      }
+    });
+
+    themeToggle.addEventListener('click', ()=>{
+      const current = state.settings.theme === 'light' ? 'light' : 'dark';
+      state.settings.theme = current === 'light' ? 'dark' : 'light';
+      LS.set('settings', state.settings);
+      appEl.setAttribute('data-theme', state.settings.theme === 'light' ? 'light' : '');
+      themeToggle.textContent = state.settings.theme === 'light' ? '🌞' : '🌙';
+    });
+
+    // quick adding via modal
+    document.addEventListener('keydown', (e)=> {
+      if(e.key === 'k' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); quickAdd('note'); }
+    });
+  }
+
+  // ---------- Quick add ----------
+  function quickAdd(type){
+    if(type==='task'){
+      openModal(`<h3>Schnell: Aufgabe</h3><input id="qTitle" class="small-input" placeholder="Titel"/><input id="qDue" class="small-input" type="date"/><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="qSave">Hinzufügen</button><button class="btn" id="qCancel">Abbrechen</button></div>`, ()=>{
+        $('#qSave').addEventListener('click', ()=> {
+          const t = $('#qTitle').value.trim(); const d = $('#qDue').value || null;
+          if(!t) return alert('Titel');
+          state.tasks.push({id:idGen(), title:t, done:false, tags:[], due:d});
+          saveAll(); closeModal(); renderGrid();
+        });
+        $('#qCancel').addEventListener('click', closeModal);
+      });
+    } else if(type==='note'){
+      openModal(`<h3>Schnell: Notiz</h3><input id="qTitle" class="small-input" placeholder="Titel"/><textarea id="qContent" class="small-input" style="min-height:120px"></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="qSave">Hinzufügen</button><button class="btn" id="qCancel">Abbrechen</button></div>`, ()=>{
+        $('#qSave').addEventListener('click', ()=> {
+          const t = $('#qTitle').value.trim(); const c = $('#qContent').value.trim();
+          if(!t) return alert('Titel');
+          state.notes.push({id:idGen(), title:t, content:c}); saveAll(); closeModal(); renderGrid();
+        });
+        $('#qCancel').addEventListener('click', closeModal);
+      });
+    } else if(type==='event'){
+      openModal(`<h3>Schnell: Ereignis</h3><input id="qTitle" class="small-input" placeholder="Titel"/><input id="qDate" class="small-input" type="date" value="${new Date().toISOString().slice(0,10)}"/><div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="qSave">Hinzufügen</button><button class="btn" id="qCancel">Abbrechen</button></div>`, ()=>{
+        $('#qSave').addEventListener('click', ()=> {
+          const t = $('#qTitle').value.trim(); const d = $('#qDate').value;
+          if(!t || !d) return alert('Titel & Datum');
+          state.events.push({id:idGen(), title:t, date:d, color:'#06b6d4'}); saveAll(); closeModal(); renderGrid();
+        });
+        $('#qCancel').addEventListener('click', closeModal);
+      });
+    }
+  }
+
+  // ---------- Export ----------
+  function exportAll(){
+    const data = {
+      tasks: state.tasks, notes: state.notes, files: state.files.map(f=>({name:f.name, size:f.size, time:f.time})), messages: state.messages, events: state.events, settings: state.settings
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download = 'dashboard-export.json'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // ---------- Settings Modal ----------
+  function openSettings(){
+    openModal(`<h3>Einstellungen</h3>
+      <label class="muted small">Nutzername</label><input id="setUser" class="small-input" value="${escapeHtml(state.settings.username||'Gast')}" />
+      <label class="muted small" style="margin-top:8px">Theme</label>
+      <select id="setTheme" class="small-input"><option value="dark">Dunkel</option><option value="light">Hell</option></select>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" id="saveSet">Speichern</button><button class="btn" id="cancelSet">Abbrechen</button></div>`, ()=>{
+        $('#setTheme').value = state.settings.theme === 'light' ? 'light' : 'dark';
+        $('#saveSet').addEventListener('click', ()=> {
+          state.settings.username = $('#setUser').value || 'Gast';
+          state.settings.theme = $('#setTheme').value;
+          saveAll();
+          appEl.setAttribute('data-theme', state.settings.theme === 'light' ? 'light' : '');
+          usernameNote.textContent = state.settings.username;
+          themeToggle.textContent = state.settings.theme === 'light' ? '🌞' : '🌙';
+          closeModal(); renderGrid();
+        });
+        $('#cancelSet').addEventListener('click', closeModal);
+      });
+  }
+
+  // ---------- Modal helpers ----------
+  function openModal(html, onReady){
+    modalRoot.innerHTML = `<div class="modal"><div class="modal-card card">${html}</div></div>`;
+    modalRoot.classList.remove('hidden');
+    if (typeof onReady === 'function') onReady();
+  }
+  function closeModal(){ modalRoot.innerHTML=''; modalRoot.classList.add('hidden'); }
+
+  // ---------- Small features ----------
+  function startClock(){
+    const el = $('#clock');
+    function tick(){ el.textContent = new Date().toLocaleTimeString(); setTimeout(tick, 1000); }
+    tick();
+  }
+
+  // ---------- Utility functions ----------
+  function escapeHtml(s=''){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+  // ---------- Simple modal task editor helpers intentionally omitted? No - included above ----------
+
+  // ---------- Search / other UI ----------
+  function attachMenuActions(){ /* placeholder if needed */ }
+
+  // ---------- Export / Import on load ----------
+  // if user loads export file via drag & drop onto whole page, support import
+  document.addEventListener('dragover', (e)=> e.preventDefault());
+  document.addEventListener('drop', (e)=> {
+    e.preventDefault();
+    if(!e.dataTransfer.files.length) return;
+    const f = e.dataTransfer.files[0];
+    if(f.name.endsWith('.json')){
+      if(confirm('Importiere dieses JSON und überschreibe lokale Daten?')) {
+        const r = new FileReader();
+        r.onload = ()=> {
+          try{
+            const parsed = JSON.parse(r.result);
+            // Only import known shapes
+            if(parsed.tasks) state.tasks = parsed.tasks;
+            if(parsed.notes) state.notes = parsed.notes;
+            if(parsed.messages) state.messages = parsed.messages;
+            if(parsed.events) state.events = parsed.events;
+            if(parsed.settings) state.settings = parsed.settings;
+            saveAll(); renderGrid(); alert('Import abgeschlossen');
+          }catch(err){ alert('Fehler beim Import'); }
+        };
+        r.readAsText(f);
+      }
+    }
+  });
+
+  // ---------- Small helpers ----------
+  function openModalRaw(html){ openModal(html); }
+  function closeModalRaw(){ closeModal(); }
+
+  // ---------- Misc helpers ----------
+  function escapeForAttr(s){ return String(s).replaceAll('"','&quot;'); }
+
+  // ---------- Init UI ----------
+  init();
+
+  // expose some for debugging in console
+  window._DB = {state, saveAll, renderGrid, openSettings, openModal, closeModal, exportAll};
+
+  // ---------- small safety save on unload ----------
+  window.addEventListener('beforeunload', ()=> saveAll());
+
+})();
+</script>
+</body>
+</html>
